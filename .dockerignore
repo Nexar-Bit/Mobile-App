@@ -1,0 +1,17 @@
+# Mobile app ignores (if building images for tooling or CI)
+
+.git
+.gitignore
+node_modules
+.expo
+dist
+.cache
+
+# Logs and env
+*.log
+.env*
+
+# Tests/build reports
+coverage/**
+test-results/**
+

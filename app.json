@@ -1,0 +1,62 @@
+{
+  "expo": {
+    "name": "Prontivus",
+    "slug": "prontivus-doctor",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/Logo/Logotipo em Fundo Transparente.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/Logo/Logotipo em Fundo Transparente.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FFFFFF"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.prontivus.doctor"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/Logo/Logotipo em Fundo Transparente.png",
+        "backgroundColor": "#FFFFFF"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "package": "com.prontivus.doctor",
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "ACCESS_WIFI_STATE"
+      ],
+      "usesCleartextTraffic": true,
+      "allowBackup": true,
+      "blockedPermissions": []
+    },
+    "web": {
+      "favicon": "./assets/Logo/Logotipo em Fundo Transparente.png"
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/Logo/Logotipo em Fundo Transparente.png",
+          "color": "#007AFF",
+          "defaultChannel": "default"
+        }
+      ],
+      "expo-font"
+    ],
+    "updates": {
+      "enabled": false,
+      "checkAutomatically": "NEVER"
+    },
+    "runtimeVersion": "1.0.0",
+    "extra": {
+      "disableUpdates": true,
+      "eas": {
+        "projectId": "6e4ec72e-a502-47f0-9342-4610e1fa27df"
+      }
+    }
+  }
+}
