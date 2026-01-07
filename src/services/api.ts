@@ -4,25 +4,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LoginResponse, User, Appointment, Patient, ClinicalRecord, ApiError } from '../types';
 
 // API Base URL configuration
-// Always uses local backend server (localhost:8000)
-// Web: uses localhost:8000 directly
-// Android Emulator: uses 10.0.2.2 to access host's localhost
-// Physical device: use your computer's LAN IP (e.g., http://192.168.x.x:8000/api/v1)
+// Uses production backend server on Render
 const getApiBaseUrl = (): string => {
-  // ALWAYS use local backend (localhost:8000)
-  // For web platform, use localhost directly
-  if (Platform.OS === 'web') {
-    return 'http://localhost:8000/api/v1';
-  }
-  
-  // For Android/iOS emulators and devices:
-  // - Android Studio Emulator: 10.0.2.2 maps to host's localhost
-  // - LDPlayer/BlueStacks: Use your computer's LAN IP (192.168.x.x)
-  // - Physical devices: Use your computer's LAN IP (192.168.x.x)
-  // 
-  // Current detected LAN IP: 192.168.123.74 (update if different)
-  // Using LAN IP for LDPlayer compatibility
-  return 'http://192.168.123.74:8000/api/v1';
+  // Production backend URL
+  return 'https://prontivus-backend-8ef1.onrender.com/api/v1';
 };
 
 const API_BASE_URL = getApiBaseUrl();
@@ -37,7 +22,7 @@ class ApiService {
     
     this.api = axios.create({
       baseURL: API_BASE_URL,
-      timeout: 45000, // Increased timeout for mobile networks and slow connections
+      timeout: 90000, // 90 seconds timeout for Render free tier cold starts
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -79,7 +64,7 @@ class ApiService {
           
           // Create a more descriptive error
           // Check if we're using local backend URL
-          const isLocalBackend = API_BASE_URL.includes('10.0.2.2') || API_BASE_URL.includes('localhost') || API_BASE_URL.includes('127.0.0.1');
+          const isLocalBackend = API_BASE_URL.includes('10.0.2.2') || API_BASE_URL.includes('localhost') || API_BASE_URL.includes('127.0.0.1') || API_BASE_URL.includes('192.168');
           const backendType = isLocalBackend ? 'servidor local' : 'servidor';
           
           const networkError = new Error(
@@ -121,12 +106,57 @@ class ApiService {
     );
   }
 
+  // Health check to wake up server (Render free tier cold start)
+  async healthCheck(maxRetries: number = 3): Promise<boolean> {
+    const healthUrl = API_BASE_URL.replace('/api/v1', '') + '/health';
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`Health check attempt ${attempt}/${maxRetries}...`);
+        const response = await axios.get(healthUrl, { 
+          timeout: 30000, // 30s timeout per attempt
+          headers: {
+            'Accept': 'application/json',
+          }
+        });
+        if (response.data?.status === 'healthy') {
+          console.log('Health check successful');
+          return true;
+        }
+      } catch (error: any) {
+        console.log(`Health check attempt ${attempt} failed:`, error?.message || error);
+        if (attempt < maxRetries) {
+          // Wait before retry with exponential backoff
+          const waitTime = Math.min(2000 * Math.pow(2, attempt - 1), 10000); // Max 10s
+          console.log(`Waiting ${waitTime}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+      }
+    }
+    console.log('Health check failed after all retries');
+    return false;
+  }
+
   // Auth methods
-  async login(email: string, password: string, expectedRole?: string): Promise<LoginResponse> {
+  async login(email: string, password: string, expectedRole?: string, retries: number = 2): Promise<LoginResponse> {
     try {
       // Log attempt for debugging
       if (typeof __DEV__ !== 'undefined' && __DEV__) {
         console.log('Attempting login to:', `${API_BASE_URL}/auth/login`);
+      }
+      
+      // Pre-flight health check to wake up server (Render free tier)
+      // This helps with cold start delays
+      console.log('Performing health check to wake up server...');
+      const isHealthy = await this.healthCheck(3);
+      
+      if (!isHealthy) {
+        // Server is waking up, wait longer
+        console.log('Server appears to be waking up, waiting 5 seconds...');
+        await new Promise(resolve => setTimeout(resolve, 5000));
+      } else {
+        // Server is awake, but wait a bit to ensure it's ready
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
       
       const response = await this.api.post<LoginResponse>('/auth/login', {
@@ -161,6 +191,15 @@ class ApiService {
         baseURL: API_BASE_URL,
       };
       console.error('Login API error:', errorDetails);
+      
+      // Retry logic for timeout errors (Render cold start)
+      if ((error?.code === 'ECONNABORTED' || error?.isNetworkError) && retries > 0) {
+        console.log(`Login timeout, retrying... (${retries} retries left)`);
+        // Wait before retry
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        // Retry with one less retry
+        return this.login(email, password, expectedRole, retries - 1);
+      }
       
       // Re-throw with enhanced error message if it's a network error
       if (error?.isNetworkError || !error?.response) {
@@ -422,6 +461,22 @@ class ApiService {
     }
   }
 
+  async getPrescriptionHistory(params?: { start_date?: string; end_date?: string; status?: string }): Promise<any[]> {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params?.start_date) queryParams.append('start_date', params.start_date);
+      if (params?.end_date) queryParams.append('end_date', params.end_date);
+      if (params?.status) queryParams.append('status', params.status);
+      
+      const query = queryParams.toString();
+      const response = await this.api.get(`/patient/prescriptions${query ? `?${query}` : ''}`);
+      return response.data || [];
+    } catch (e) {
+      console.error('Failed to load prescription history:', e);
+      return [];
+    }
+  }
+
   // Test Results / Exam Results
   async getMyTestResults(): Promise<any[]> {
     try {
@@ -461,6 +516,128 @@ class ApiService {
       return response.data;
     } catch (e) {
       throw e;
+    }
+  }
+
+  async getPaymentHistory(params?: { start_date?: string; end_date?: string; status?: string }): Promise<any[]> {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params?.start_date) queryParams.append('start_date', params.start_date);
+      if (params?.end_date) queryParams.append('end_date', params.end_date);
+      if (params?.status) queryParams.append('status', params.status);
+      
+      const query = queryParams.toString();
+      const response = await this.api.get(`/financial/payments/me${query ? `?${query}` : ''}`);
+      return response.data || [];
+    } catch (e) {
+      console.error('Failed to load payment history:', e);
+      return [];
+    }
+  }
+
+  // Online Payments
+  async createPIXPayment(data: { amount: number; description: string; invoice_id?: number; appointment_id?: number }): Promise<any> {
+    try {
+      const response = await this.api.post('/online-payments/pix', data);
+      return response.data;
+    } catch (e) {
+      console.error('Failed to create PIX payment:', e);
+      throw e;
+    }
+  }
+
+  async createCardPayment(data: { amount: number; description: string; card_token: string; installments?: number; invoice_id?: number; appointment_id?: number }): Promise<any> {
+    try {
+      const response = await this.api.post('/online-payments/card', data);
+      return response.data;
+    } catch (e) {
+      console.error('Failed to create card payment:', e);
+      throw e;
+    }
+  }
+
+  async getPaymentStatus(transactionId: string): Promise<any> {
+    try {
+      const response = await this.api.get(`/online-payments/status/${transactionId}`);
+      return response.data;
+    } catch (e) {
+      console.error('Failed to get payment status:', e);
+      throw e;
+    }
+  }
+
+  async cancelPayment(transactionId: string, reason?: string): Promise<void> {
+    try {
+      await this.api.post(`/online-payments/cancel/${transactionId}`, { reason });
+    } catch (e) {
+      console.error('Failed to cancel payment:', e);
+      throw e;
+    }
+  }
+
+  // Telemetry
+  async createTelemetryRecord(data: {
+    measured_at: string;
+    systolic_bp?: number;
+    diastolic_bp?: number;
+    heart_rate?: number;
+    temperature?: number;
+    oxygen_saturation?: number;
+    respiratory_rate?: number;
+    weight?: number;
+    height?: number;
+    notes?: string;
+  }): Promise<any> {
+    try {
+      const response = await this.api.post('/telemetry', data);
+      return response.data;
+    } catch (e) {
+      console.error('Failed to create telemetry record:', e);
+      throw e;
+    }
+  }
+
+  async getMyTelemetryRecords(params?: { limit?: number; offset?: number; start_date?: string; end_date?: string }): Promise<any[]> {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params?.limit) queryParams.append('limit', params.limit.toString());
+      if (params?.offset) queryParams.append('offset', params.offset.toString());
+      if (params?.start_date) queryParams.append('start_date', params.start_date);
+      if (params?.end_date) queryParams.append('end_date', params.end_date);
+      
+      const query = queryParams.toString();
+      const response = await this.api.get(`/telemetry/me${query ? `?${query}` : ''}`);
+      return response.data || [];
+    } catch (e) {
+      console.error('Failed to load telemetry records:', e);
+      return [];
+    }
+  }
+
+  async getTelemetryStats(period: 'last_7_days' | 'last_30_days' | 'last_3_months' = 'last_7_days'): Promise<any> {
+    try {
+      const response = await this.api.get(`/telemetry/me/stats?period=${period}`);
+      return response.data;
+    } catch (e) {
+      console.error('Failed to load telemetry stats:', e);
+      return null;
+    }
+  }
+
+  // Query/Consultation History
+  async getQueryHistory(params?: { start_date?: string; end_date?: string; doctor_id?: number }): Promise<any[]> {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params?.start_date) queryParams.append('start_date', params.start_date);
+      if (params?.end_date) queryParams.append('end_date', params.end_date);
+      if (params?.doctor_id) queryParams.append('doctor_id', params.doctor_id.toString());
+      
+      const query = queryParams.toString();
+      const response = await this.api.get(`/clinical/records/me${query ? `?${query}` : ''}`);
+      return response.data || [];
+    } catch (e) {
+      console.error('Failed to load query history:', e);
+      return [];
     }
   }
 

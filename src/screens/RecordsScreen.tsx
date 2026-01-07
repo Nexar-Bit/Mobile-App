@@ -20,6 +20,8 @@ const RecordsScreen = ({ navigation }: any) => {
   const [records, setRecords] = useState<ClinicalRecord[]>([]);
   const [documents, setDocuments] = useState<any[]>([]);
   const [summary, setSummary] = useState<any>(null);
+  const [queryHistory, setQueryHistory] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<'records' | 'queries'>('records');
 
   const loadData = async () => {
     try {
@@ -28,6 +30,7 @@ const RecordsScreen = ({ navigation }: any) => {
         apiService.getMyMedicalRecords(),
         apiService.getMyDocuments(),
         apiService.getMyRecordsSummary(),
+        apiService.getQueryHistory(),
       ]);
       
       // Handle records data
@@ -53,12 +56,21 @@ const RecordsScreen = ({ navigation }: any) => {
         console.error('Failed to load summary:', results[2].reason);
         setSummary(null);
       }
+      
+      // Handle query history data
+      if (results[3].status === 'fulfilled') {
+        setQueryHistory(results[3].value);
+      } else {
+        console.error('Failed to load query history:', results[3].reason);
+        setQueryHistory([]);
+      }
     } catch (error) {
       console.error('Failed to load records:', error);
       // Set empty defaults on error
       setRecords([]);
       setDocuments([]);
       setSummary(null);
+      setQueryHistory([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -96,7 +108,30 @@ const RecordsScreen = ({ navigation }: any) => {
       style={styles.container}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
-      {/* Summary Card */}
+      {/* Tabs */}
+      <View style={styles.tabsContainer}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'records' && styles.tabActive]}
+          onPress={() => setActiveTab('records')}
+        >
+          <Text style={[styles.tabText, activeTab === 'records' && styles.tabTextActive]}>
+            Registros
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'queries' && styles.tabActive]}
+          onPress={() => setActiveTab('queries')}
+        >
+          <Text style={[styles.tabText, activeTab === 'queries' && styles.tabTextActive]}>
+            Histórico de Consultas
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Records Tab */}
+      {activeTab === 'records' && (
+        <>
+          {/* Summary Card */}
       {summary && (
         <View style={styles.summaryCard}>
           <Text style={styles.summaryTitle}>Resumo Médico</Text>
@@ -197,22 +232,75 @@ const RecordsScreen = ({ navigation }: any) => {
         )}
       </View>
 
-      {/* Quick Actions */}
-      <View style={styles.quickActions}>
-        {[
-          { id: 'medications', icon: 'medical', color: '#34C759', label: 'Prescrições', screen: 'Medications' },
-          { id: 'metrics', icon: 'analytics-sharp', color: '#AF52DE', label: 'Exames', screen: 'Metrics' },
-        ].map((action) => (
-          <TouchableOpacity 
-            key={action.id}
-            style={styles.quickActionButton}
-            onPress={() => navigation.navigate(action.screen as any)}
-          >
-            <Ionicons name={action.icon as any} size={24} color={action.color} />
-            <Text style={styles.quickActionText}>{action.label}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+          {/* Quick Actions */}
+          <View style={styles.quickActions}>
+            {[
+              { id: 'medications', icon: 'medical', color: '#34C759', label: 'Prescrições', screen: 'Medications' },
+              { id: 'metrics', icon: 'analytics-sharp', color: '#AF52DE', label: 'Exames', screen: 'Metrics' },
+            ].map((action) => (
+              <TouchableOpacity 
+                key={action.id}
+                style={styles.quickActionButton}
+                onPress={() => navigation.navigate(action.screen as any)}
+              >
+                <Ionicons name={action.icon as any} size={24} color={action.color} />
+                <Text style={styles.quickActionText}>{action.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </>
+      )}
+
+      {/* Query History Tab */}
+      {activeTab === 'queries' && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Histórico de Consultas</Text>
+          {queryHistory.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="document-text-outline" size={56} color={Colors.gray300} />
+              <Text style={styles.emptyText}>Nenhuma consulta encontrada</Text>
+            </View>
+          ) : (
+            queryHistory.map((query) => (
+              <TouchableOpacity key={query.id} style={styles.queryCard}>
+                <View style={styles.queryHeader}>
+                  <Ionicons name="calendar" size={24} color="#007AFF" />
+                  <View style={styles.queryContent}>
+                    <Text style={styles.queryDate}>{formatDate(query.created_at)}</Text>
+                    {query.doctor_name && (
+                      <Text style={styles.queryDoctor}>Dr(a). {query.doctor_name}</Text>
+                    )}
+                    {query.appointment && (
+                      <Text style={styles.queryAppointment}>
+                        Consulta: {formatDate(query.appointment.scheduled_datetime)}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+                {(query.subjective || query.chief_complaint) && (
+                  <Text style={styles.queryTitle} numberOfLines={2}>
+                    {query.subjective || query.chief_complaint}
+                  </Text>
+                )}
+                {(query.assessment || query.objective) && (
+                  <Text style={styles.queryText} numberOfLines={3}>
+                    {query.assessment || query.objective}
+                  </Text>
+                )}
+                {query.diagnosis && (
+                  <View style={styles.queryDiagnosis}>
+                    <Text style={styles.queryDiagnosisLabel}>Diagnóstico:</Text>
+                    <Text style={styles.queryDiagnosisText}>{query.diagnosis}</Text>
+                  </View>
+                )}
+                <View style={styles.queryFooter}>
+                  <Ionicons name="chevron-forward" size={20} color="#ccc" />
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
+        </View>
+      )}
     </ScrollView>
   );
 };
@@ -387,6 +475,104 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#333',
+    marginTop: 8,
+  },
+  tabsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    gap: 8,
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#f0f0f0',
+    alignItems: 'center',
+  },
+  tabActive: {
+    backgroundColor: '#007AFF',
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+  },
+  tabTextActive: {
+    color: 'white',
+  },
+  queryCard: {
+    backgroundColor: 'white',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  queryHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  queryContent: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  queryDate: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+  },
+  queryDoctor: {
+    fontSize: 14,
+    color: '#007AFF',
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  queryAppointment: {
+    fontSize: 12,
+    color: '#999',
+    fontStyle: 'italic',
+  },
+  queryTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  queryText: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  queryDiagnosis: {
+    backgroundColor: '#f8f9fa',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  queryDiagnosisLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 4,
+  },
+  queryDiagnosisText: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '500',
+  },
+  queryFooter: {
+    alignItems: 'flex-end',
     marginTop: 8,
   },
 });

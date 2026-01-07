@@ -6,7 +6,9 @@ import {
   ActivityIndicator, 
   StyleSheet,
   ScrollView,
-  RefreshControl 
+  RefreshControl,
+  TextInput,
+  TouchableOpacity
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import apiService from '../services/api';
@@ -27,22 +29,59 @@ const MedicationsScreen = ({ navigation }: any) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
+  const [filteredPrescriptions, setFilteredPrescriptions] = useState<Prescription[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed' | 'cancelled'>('all');
 
   const loadPrescriptions = async () => {
     try {
-      const data = await apiService.getMyPrescriptions();
+      const data = await apiService.getPrescriptionHistory();
       setPrescriptions(data);
+      applyFilters(data, searchQuery, statusFilter);
     } catch (error) {
       console.error('Failed to load prescriptions:', error);
+      // Fallback to getMyPrescriptions if history endpoint fails
+      try {
+        const fallbackData = await apiService.getMyPrescriptions();
+        setPrescriptions(fallbackData);
+        applyFilters(fallbackData, searchQuery, statusFilter);
+      } catch (fallbackError) {
+        console.error('Failed to load prescriptions (fallback):', fallbackError);
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
+  const applyFilters = (data: Prescription[], query: string, status: string) => {
+    let filtered = [...data];
+    
+    // Apply status filter
+    if (status !== 'all') {
+      filtered = filtered.filter(p => p.status === status);
+    }
+    
+    // Apply search query
+    if (query.trim()) {
+      const lowerQuery = query.toLowerCase();
+      filtered = filtered.filter(p => 
+        p.medication_name.toLowerCase().includes(lowerQuery) ||
+        (p.doctor_name && p.doctor_name.toLowerCase().includes(lowerQuery)) ||
+        (p.dosage && p.dosage.toLowerCase().includes(lowerQuery))
+      );
+    }
+    
+    setFilteredPrescriptions(filtered);
+  };
+
   useEffect(() => {
     loadPrescriptions();
   }, []);
+
+  useEffect(() => {
+    applyFilters(prescriptions, searchQuery, statusFilter);
+  }, [searchQuery, statusFilter]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -77,8 +116,8 @@ const MedicationsScreen = ({ navigation }: any) => {
     return statusMap[status] || status;
   };
 
-  const activePrescriptions = prescriptions.filter(p => p.status === 'active');
-  const pastPrescriptions = prescriptions.filter(p => p.status !== 'active');
+  const activePrescriptions = filteredPrescriptions.filter(p => p.status === 'active');
+  const pastPrescriptions = filteredPrescriptions.filter(p => p.status !== 'active');
 
   if (loading) {
     return (
@@ -93,6 +132,45 @@ const MedicationsScreen = ({ navigation }: any) => {
       style={styles.container}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
+      {/* Search and Filters */}
+      <View style={styles.searchContainer}>
+        <View style={styles.searchBar}>
+          <Ionicons name="search" size={20} color="#666" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Buscar prescrições..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={20} color="#666" />
+            </TouchableOpacity>
+          )}
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterContainer}>
+          {(['all', 'active', 'completed', 'cancelled'] as const).map((status) => (
+            <TouchableOpacity
+              key={status}
+              style={[
+                styles.filterButton,
+                statusFilter === status && styles.filterButtonActive
+              ]}
+              onPress={() => setStatusFilter(status)}
+            >
+              <Text style={[
+                styles.filterButtonText,
+                statusFilter === status && styles.filterButtonTextActive
+              ]}>
+                {status === 'all' ? 'Todas' :
+                 status === 'active' ? 'Ativas' :
+                 status === 'completed' ? 'Concluídas' : 'Canceladas'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
       {/* Active Prescriptions */}
       {activePrescriptions.length > 0 && (
         <View style={styles.section}>
@@ -170,11 +248,15 @@ const MedicationsScreen = ({ navigation }: any) => {
         )}
 
       {/* Empty State */}
-      {prescriptions.length === 0 && (
+      {filteredPrescriptions.length === 0 && (
         <View style={styles.emptyContainer}>
           <Ionicons name="medical-outline" size={64} color="#ccc" />
-          <Text style={styles.emptyText}>Nenhuma prescrição encontrada</Text>
-    </View>
+          <Text style={styles.emptyText}>
+            {searchQuery || statusFilter !== 'all' 
+              ? 'Nenhuma prescrição encontrada com os filtros aplicados'
+              : 'Nenhuma prescrição encontrada'}
+          </Text>
+        </View>
       )}
     </ScrollView>
   );
@@ -290,6 +372,48 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#999',
     marginTop: 16,
+  },
+  searchContainer: {
+    padding: 16,
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 12,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#333',
+  },
+  filterContainer: {
+    marginTop: 8,
+  },
+  filterButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
+    marginRight: 8,
+  },
+  filterButtonActive: {
+    backgroundColor: '#007AFF',
+  },
+  filterButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+  },
+  filterButtonTextActive: {
+    color: 'white',
   },
 });
 

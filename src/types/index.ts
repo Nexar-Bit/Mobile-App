@@ -111,6 +111,7 @@ export type RootStackParamList = {
   Notes: undefined;
   Settings: undefined;
   Doctors: undefined;
+  Telemetry: undefined;
   Appointments: { doctorId?: number };
 };
 

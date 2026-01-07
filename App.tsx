@@ -4,7 +4,6 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Platform } from 'react-native';
 import AppNavigator from './src/navigation/AppNavigator';
-import { View, Text, StyleSheet } from 'react-native';
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component<
@@ -154,23 +153,3 @@ export default function App() {
     </ErrorBoundary>
   );
 }
-
-const styles = StyleSheet.create({
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  errorMessage: {
-    fontSize: 14,
-    color: 'gray',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-});

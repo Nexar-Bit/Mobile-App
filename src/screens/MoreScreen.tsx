@@ -46,6 +46,11 @@ const MoreScreen = ({ navigation }: any) => {
       screen: 'Medications',
     },
     {
+      icon: 'pulse-outline',
+      title: 'Telemetria',
+      screen: 'Telemetry',
+    },
+    {
       icon: 'settings-outline',
       title: 'Configurações',
       screen: 'Settings',

@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Prontivus",
-    "slug": "prontivus-doctor",
+    "slug": "prontivus-doctor-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/Logo/Logotipo em Fundo Transparente.png",
@@ -55,8 +55,9 @@
     "extra": {
       "disableUpdates": true,
       "eas": {
-        "projectId": "6e4ec72e-a502-47f0-9342-4610e1fa27df"
+        "projectId": "523401d4-922a-4eaf-82d4-ddf639c0f605"
       }
-    }
+    },
+    "owner": "sid_lesch"
   }
 }

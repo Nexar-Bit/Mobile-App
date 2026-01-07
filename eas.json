@@ -13,8 +13,8 @@
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://192.168.123.74:8000/api/v1",
-        "EXPO_PUBLIC_ENV": "development"
+        "EXPO_PUBLIC_API_URL": "https://prontivus-backend-8ef1.onrender.com/api/v1",
+        "EXPO_PUBLIC_ENV": "preview"
       },
       "android": {
         "buildType": "apk"
@@ -25,8 +25,8 @@
     },
     "production": {
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://192.168.123.74:8000/api/v1",
-        "EXPO_PUBLIC_ENV": "development"
+        "EXPO_PUBLIC_API_URL": "https://prontivus-backend-8ef1.onrender.com/api/v1",
+        "EXPO_PUBLIC_ENV": "production"
       },
       "android": {
         "buildType": "apk"

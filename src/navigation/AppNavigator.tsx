@@ -3,7 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { Image, Text } from 'react-native';
+import { Text } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../store/authStore';
 import { useNotifications } from '../hooks/useNotifications';
@@ -19,7 +19,6 @@ import PatientsScreen from '../screens/PatientsScreen';
 import MoreScreen from '../screens/MoreScreen';
 import RecordsScreen from '../screens/RecordsScreen';
 import MessagesScreen from '../screens/MessagesScreen';
-import TelemedicineScreen from '../screens/TelemedicineScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import OnboardingMedicalHistoryScreen from '../screens/OnboardingMedicalHistoryScreen';
 import OnboardingInsuranceScreen from '../screens/OnboardingInsuranceScreen';
@@ -34,6 +33,7 @@ import TestResultsScreen from '../screens/TestResultsScreen';
 import NotesScreen from '../screens/NotesScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import DoctorsScreen from '../screens/DoctorsScreen';
+import TelemetryScreen from '../screens/TelemetryScreen';
 
 const Stack = createStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -101,7 +101,6 @@ const NotificationsInitializer = () => {
 
 const AppNavigator = () => {
   const { isAuthenticated, isLoading, checkAuth } = useAuthStore();
-  const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [bootChecked, setBootChecked] = useState(false);
 
   useEffect(() => {
@@ -111,21 +110,10 @@ const AppNavigator = () => {
 
   useEffect(() => {
     (async () => {
-      const done = await AsyncStorage.getItem('onboarding_done');
-      setNeedsOnboarding(!done);
+      await AsyncStorage.getItem('onboarding_done');
       setBootChecked(true);
     })();
   }, []);
-
-  // Update onboarding check when authentication state changes
-  useEffect(() => {
-    if (isAuthenticated && bootChecked) {
-      (async () => {
-        const done = await AsyncStorage.getItem('onboarding_done');
-        setNeedsOnboarding(!done);
-      })();
-    }
-  }, [isAuthenticated, bootChecked]);
 
   // Show loading only on initial boot check, not on auth state changes
   if (!bootChecked || isLoading) {
@@ -137,46 +125,26 @@ const AppNavigator = () => {
       <NotificationsInitializer />
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {isAuthenticated ? (
-          // Skip onboarding for now - go directly to main tabs
-          // needsOnboarding ? (
-          //   <>
-          //     <Stack.Screen name="OnboardingMedical" component={OnboardingMedicalHistoryScreen} />
-          //     <Stack.Screen name="OnboardingInsurance" component={OnboardingInsuranceScreen} />
-          //     <Stack.Screen name="Main" component={PatientTabs} />
-          //     <Stack.Screen name="Profile" component={ProfileScreen} />
-          //     <Stack.Screen name="HealthHub" component={HealthHubScreen} />
-          //     <Stack.Screen name="SymptomChecker" component={SymptomCheckerScreen} />
-          //     <Stack.Screen name="Medications" component={MedicationsScreen} />
-          //     <Stack.Screen name="Metrics" component={MetricsScreen} />
-          //     <Stack.Screen name="Billing" component={BillingScreen} />
-          //     <Stack.Screen name="Health" component={HealthScreen} />
-          //     <Stack.Screen name="Support" component={SupportScreen} />
-          //     <Stack.Screen name="TestResults" component={TestResultsScreen} />
-          //     <Stack.Screen name="Notes" component={NotesScreen} />
-          //     <Stack.Screen name="Settings" component={SettingsScreen} />
-          //     <Stack.Screen name="Doctors" component={DoctorsScreen} />
-          //   </>
-          // ) : (
-            <>
-              <Stack.Screen name="Main" component={PatientTabs} />
-              <Stack.Screen name="Profile" component={ProfileScreen} />
-              <Stack.Screen name="Records" component={RecordsScreen} />
-              <Stack.Screen name="Messages" component={MessagesScreen} />
-              <Stack.Screen name="HealthHub" component={HealthHubScreen} />
-              <Stack.Screen name="SymptomChecker" component={SymptomCheckerScreen} />
-              <Stack.Screen name="Medications" component={MedicationsScreen} />
-              <Stack.Screen name="Metrics" component={MetricsScreen} />
-              <Stack.Screen name="Billing" component={BillingScreen} />
-              <Stack.Screen name="Health" component={HealthScreen} />
-              <Stack.Screen name="Support" component={SupportScreen} />
-              <Stack.Screen name="TestResults" component={TestResultsScreen} />
-              <Stack.Screen name="Notes" component={NotesScreen} />
-              <Stack.Screen name="Settings" component={SettingsScreen} />
-              <Stack.Screen name="Doctors" component={DoctorsScreen} />
-              <Stack.Screen name="OnboardingMedical" component={OnboardingMedicalHistoryScreen} />
-              <Stack.Screen name="OnboardingInsurance" component={OnboardingInsuranceScreen} />
-            </>
-          // )
+          <>
+            <Stack.Screen name="Main" component={PatientTabs} />
+            <Stack.Screen name="Profile" component={ProfileScreen} />
+            <Stack.Screen name="Records" component={RecordsScreen} />
+            <Stack.Screen name="Messages" component={MessagesScreen} />
+            <Stack.Screen name="HealthHub" component={HealthHubScreen} />
+            <Stack.Screen name="SymptomChecker" component={SymptomCheckerScreen} />
+            <Stack.Screen name="Medications" component={MedicationsScreen} />
+            <Stack.Screen name="Metrics" component={MetricsScreen} />
+            <Stack.Screen name="Billing" component={BillingScreen} />
+            <Stack.Screen name="Health" component={HealthScreen} />
+            <Stack.Screen name="Support" component={SupportScreen} />
+            <Stack.Screen name="TestResults" component={TestResultsScreen} />
+            <Stack.Screen name="Notes" component={NotesScreen} />
+            <Stack.Screen name="Settings" component={SettingsScreen} />
+            <Stack.Screen name="Doctors" component={DoctorsScreen} />
+            <Stack.Screen name="Telemetry" component={TelemetryScreen} />
+            <Stack.Screen name="OnboardingMedical" component={OnboardingMedicalHistoryScreen} />
+            <Stack.Screen name="OnboardingInsurance" component={OnboardingInsuranceScreen} />
+          </>
         ) : (
           <>
             <Stack.Screen name="Login" component={LoginScreen} />
